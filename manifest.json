@@ -2,7 +2,7 @@
   "name": "PnL Journal",
   "short_name": "PnL",
   "description": "Live MT5 trading P&L calendar",
-  "start_url": "/index.html",
+  "start_url": "/pnl-journal/index.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0f",
