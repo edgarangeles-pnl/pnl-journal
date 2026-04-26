@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PnL Journal">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="manifest.json">
+<title>PnL Journal</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg:         #0a0a0f;
+  --bg2:        #111118;
+  --bg3:        #1a1a24;
+  --border:     rgba(255,255,255,0.07);
+  --border2:    rgba(255,255,255,0.13);
+  --text:       #f0ede8;
+  --text2:      #7a7890;
+  --text3:      #3d3c4a;
+  --green:      #1DB87A;
+  --green-bg:   rgba(29,184,122,0.12);
+  --green-bg2:  rgba(29,184,122,0.07);
+  --red:        #F04E4E;
+  --red-bg:     rgba(240,78,78,0.12);
+  --red-bg2:    rgba(240,78,78,0.07);
+  --accent:     #7B6EF6;
+  --font-head:  'Syne', sans-serif;
+  --font-mono:  'DM Mono', monospace;
+  --r:          14px;
+  --r-sm:       8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-head);
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── STATUS BAR SAFE AREA ── */
+.header {
+  padding: env(safe-area-inset-top, 16px) 20px 0;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+  flex-shrink: 0;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.app-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.account-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text2);
+  background: var(--bg3);
+  border: 0.5px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── MONTH NAV ── */
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.month-label {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.nav-arrows { display: flex; gap: 6px; }
+
+.nav-arrow {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  background: var(--bg3);
+  border: 0.5px solid var(--border);
+  color: var(--text2);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .15s;
+}
+.nav-arrow:active { transform: scale(0.93); background: var(--bg2); }
+
+/* ── SUMMARY STRIP ── */
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.strip-card {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+}
+
+.strip-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+
+.strip-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+.strip-value.pos { color: var(--green); }
+.strip-value.neg { color: var(--red); }
+
+/* ── CALENDAR ── */
+.cal-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.dow-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  padding: 4px 0;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.day-cell {
+  aspect-ratio: 1;
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  cursor: pointer;
+  transition: transform .12s, opacity .12s;
+  position: relative;
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  min-height: 48px;
+}
+
+.day-cell:active { transform: scale(0.92); opacity: .8; }
+.day-cell.empty { background: transparent; border-color: transparent; cursor: default; }
+.day-cell.profit { background: var(--green-bg); border-color: rgba(29,184,122,0.25); }
+.day-cell.loss   { background: var(--red-bg);   border-color: rgba(240,78,78,0.25); }
+.day-cell.today  { border-color: var(--accent); border-width: 1.5px; }
+
+.day-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  line-height: 1;
+}
+.day-cell.profit .day-num { color: var(--green); }
+.day-cell.loss   .day-num { color: var(--red); }
+.day-cell.today  .day-num { color: var(--accent); }
+
+.day-trades {
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+
+.day-pnl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  margin-top: 1px;
+  line-height: 1;
+}
+.day-pnl.pos { color: var(--green); }
+.day-pnl.neg { color: var(--red); }
+
+/* ── BOTTOM SHEET ── */
+.sheet-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 50;
+  display: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.sheet-bg.open { display: flex; align-items: flex-end; }
+
+.sheet {
+  background: var(--bg2);
+  border-top: 0.5px solid var(--border2);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(.32,.72,0,1);
+}
+.sheet-bg.open .sheet { transform: translateY(0); }
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  margin: 12px auto 4px;
+  flex-shrink: 0;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px 14px;
+  flex-shrink: 0;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.sheet-date {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sheet-pnl {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+}
+.sheet-pnl.pos { color: var(--green); }
+.sheet-pnl.neg { color: var(--red); }
+.sheet-pnl.zero { color: var(--text2); }
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px;
+}
+
+.trade-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+.trade-item:last-child { border-bottom: none; }
+
+.trade-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.trade-badge.buy { background: var(--green-bg); color: var(--green); }
+.trade-badge.sell { background: var(--red-bg); color: var(--red); }
+
+.trade-info { flex: 1; }
+.trade-sym { font-size: 14px; font-weight: 600; color: var(--text); }
+.trade-time { font-size: 11px; color: var(--text2); font-family: var(--font-mono); margin-top: 2px; }
+
+.trade-pnl {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: right;
+}
+.trade-pnl.pos { color: var(--green); }
+.trade-pnl.neg { color: var(--red); }
+
+.trade-comm {
+  font-size: 10px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  margin-top: 1px;
+  text-align: right;
+}
+
+.no-trades {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--text3);
+  font-size: 14px;
+}
+
+/* ── LOADING ── */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+  gap: 16px;
+}
+.loading-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.loading-sub { font-size: 13px; color: var(--text2); }
+.spinner {
+  width: 24px; height: 24px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── CONFIG SCREEN ── */
+.config-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 98;
+  display: none;
+  flex-direction: column;
+  padding: 60px 24px 40px;
+  overflow-y: auto;
+}
+.config-screen.open { display: flex; }
+.config-title { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+.config-sub { font-size: 14px; color: var(--text2); margin-bottom: 32px; line-height: 1.6; }
+.config-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); margin-bottom: 6px; }
+.config-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 0.5px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  margin-bottom: 20px;
+}
+.config-input:focus { outline: none; border-color: var(--accent); }
+.config-hint {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: -14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.config-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  padding: 16px;
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.config-btn:active { opacity: .85; }
+
+.gear-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  background: var(--bg3);
+  border: 0.5px solid var(--border);
+  color: var(--text2);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-screen" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-title">PnL Journal</div>
+  <div class="loading-sub" id="loading-sub">Connecting to Firebase...</div>
+</div>
+
+<!-- Config screen -->
+<div class="config-screen" id="config-screen">
+  <div class="config-title">Setup</div>
+  <div class="config-sub">Connect your Firebase database to receive live trade data from your MT5 EA.</div>
+
+  <div class="config-label">Firebase Database URL</div>
+  <input class="config-input" id="cfg-url" placeholder="https://your-project.firebaseio.com" type="url">
+  <div class="config-hint">Find this in Firebase Console → Realtime Database → copy the URL at the top.</div>
+
+  <div class="config-label">MT5 Account Number</div>
+  <input class="config-input" id="cfg-account" placeholder="11595642" type="text" value="11595642">
+
+  <div class="config-label">Secret Key</div>
+  <input class="config-input" id="cfg-key" placeholder="Same key set in the EA input parameters" type="text">
+  <div class="config-hint">Must match the SECRET_KEY in your MT5 EA. Used to verify data source.</div>
+
+  <button class="config-btn" onclick="saveConfig()">Connect & Start →</button>
+</div>
+
+<!-- Main app -->
+<div class="app" id="app" style="display:none">
+  <div class="header">
+    <div class="header-inner">
+      <div class="app-title">PnL Journal</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="account-pill">
+          <div class="live-dot" id="live-dot"></div>
+          <span id="account-label">—</span>
+        </div>
+        <div class="gear-btn" onclick="openConfig()">⚙</div>
+      </div>
+    </div>
+
+    <div class="month-nav">
+      <div class="month-label" id="month-label">April 2026</div>
+      <div class="nav-arrows">
+        <div class="nav-arrow" onclick="changeMonth(-1)">‹</div>
+        <div class="nav-arrow" onclick="changeMonth(1)">›</div>
+      </div>
+    </div>
+
+    <div class="summary-strip" id="summary-strip">
+      <div class="strip-card">
+        <div class="strip-label">Month P&L</div>
+        <div class="strip-value" id="s-pnl">—</div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-label">Trades</div>
+        <div class="strip-value" id="s-trades">—</div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-label">Win days</div>
+        <div class="strip-value pos" id="s-days">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cal-scroll">
+    <div class="dow-row">
+      <div class="dow-label">Su</div><div class="dow-label">Mo</div>
+      <div class="dow-label">Tu</div><div class="dow-label">We</div>
+      <div class="dow-label">Th</div><div class="dow-label">Fr</div>
+      <div class="dow-label">Sa</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+
+<!-- Bottom sheet -->
+<div class="sheet-bg" id="sheet-bg" onclick="closeSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-date" id="sheet-date">—</div>
+      <div class="sheet-pnl zero" id="sheet-pnl">$0.00</div>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+                      'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let cfg = {};
+let allTrades = {}; // { "2026-04-23": [{...}, {...}] }
+let curYear, curMonth;
+let db = null;
+
+function loadConfig() {
+  try {
+    const s = localStorage.getItem('pnl_cfg');
+    return s ? JSON.parse(s) : null;
+  } catch(e) { return null; }
+}
+
+function saveConfig() {
+  const url     = document.getElementById('cfg-url').value.trim().replace(/\/$/, '');
+  const account = document.getElementById('cfg-account').value.trim();
+  const key     = document.getElementById('cfg-key').value.trim();
+  if (!url || !account) { alert('Firebase URL and account number are required.'); return; }
+  cfg = { url, account, key };
+  localStorage.setItem('pnl_cfg', JSON.stringify(cfg));
+  document.getElementById('config-screen').classList.remove('open');
+  init();
+}
+
+function openConfig() {
+  const s = document.getElementById('config-screen');
+  if (cfg.url) document.getElementById('cfg-url').value = cfg.url;
+  if (cfg.account) document.getElementById('cfg-account').value = cfg.account;
+  if (cfg.key) document.getElementById('cfg-key').value = cfg.key;
+  s.classList.add('open');
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+function init() {
+  const saved = loadConfig();
+  if (!saved || !saved.url) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('config-screen').classList.add('open');
+    return;
+  }
+  cfg = saved;
+
+  document.getElementById('account-label').textContent = '#' + cfg.account;
+
+  const today = new Date();
+  curYear  = today.getFullYear();
+  curMonth = today.getMonth();
+
+  // Init Firebase
+  const firebaseConfig = { databaseURL: cfg.url };
+  try {
+    const app = firebase.initializeApp(firebaseConfig);
+    db = firebase.database(app);
+    connectFirebase();
+  } catch(e) {
+    setLoading('Firebase init error: ' + e.message);
+    setTimeout(() => {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      render();
+    }, 2000);
+  }
+}
+
+function connectFirebase() {
+  setLoading('Syncing trades...');
+  const ref = db.ref('trades/' + cfg.account);
+
+  ref.on('value', snap => {
+    allTrades = {};
+    const data = snap.val();
+    if (data) {
+      Object.entries(data).forEach(([dayKey, dayTrades]) => {
+        // dayKey is like "2026_04_23"
+        const dateStr = dayKey.replace(/_/g, '-');
+        allTrades[dateStr] = [];
+        Object.values(dayTrades).forEach(t => {
+          if (!cfg.key || t.key === cfg.key) {
+            allTrades[dateStr].push(t);
+          }
+        });
+      });
+    }
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    setLive(true);
+    render();
+  }, err => {
+    setLoading('Connection error. Check URL.');
+    setLive(false);
+    setTimeout(() => {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      render();
+    }, 2000);
+  });
+}
+
+function setLoading(msg) {
+  document.getElementById('loading-sub').textContent = msg;
+}
+
+function setLive(on) {
+  document.getElementById('live-dot').style.background = on ? 'var(--green)' : '#666';
+}
+
+// ════════════════════════════════════════
+// CALENDAR RENDER
+// ════════════════════════════════════════
+function render() {
+  document.getElementById('month-label').textContent = MONTHS[curMonth] + ' ' + curYear;
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const key = `${curYear}-${String(curMonth+1).padStart(2,'0')}`;
+  const today = new Date();
+  const first = new Date(curYear, curMonth, 1).getDay();
+  const days  = new Date(curYear, curMonth+1, 0).getDate();
+
+  let monthPnl = 0, monthTrades = 0, profitDays = 0;
+
+  // Empty cells
+  for (let i = 0; i < first; i++) {
+    const el = document.createElement('div');
+    el.className = 'day-cell empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= days; d++) {
+    const dateStr = `${curYear}-${String(curMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayTrades = allTrades[dateStr] || [];
+    const pnl = dayTrades.reduce((s,t) => s + (t.profit||0) + (t.commission||0) + (t.swap||0), 0);
+    const count = dayTrades.length;
+
+    monthPnl    += pnl;
+    monthTrades += count;
+    if (pnl > 0 && count > 0) profitDays++;
+
+    const isToday = today.getFullYear()===curYear && today.getMonth()===curMonth && today.getDate()===d;
+
+    const el = document.createElement('div');
+    let cls = 'day-cell';
+    if (count > 0) cls += pnl > 0 ? ' profit' : pnl < 0 ? ' loss' : '';
+    if (isToday) cls += ' today';
+    el.className = cls;
+
+    el.innerHTML = `
+      <div class="day-num">${d}</div>
+      ${count > 0 ? `
+        <div class="day-trades">${count}⇄</div>
+        <div class="day-pnl ${pnl>=0?'pos':'neg'}">$${Math.abs(pnl).toFixed(0)}</div>
+      ` : ''}
+    `;
+
+    el.addEventListener('click', () => openSheet(dateStr, dayTrades, pnl));
+    grid.appendChild(el);
+  }
+
+  // Summary strip
+  const pnlEl = document.getElementById('s-pnl');
+  pnlEl.textContent = (monthPnl >= 0 ? '+' : '') + '$' + monthPnl.toFixed(0);
+  pnlEl.className = 'strip-value ' + (monthPnl >= 0 ? 'pos' : 'neg');
+  document.getElementById('s-trades').textContent = monthTrades;
+  document.getElementById('s-days').textContent = profitDays + 'd';
+}
+
+// ════════════════════════════════════════
+// BOTTOM SHEET
+// ════════════════════════════════════════
+function openSheet(dateStr, trades, totalPnl) {
+  const parts = dateStr.split('-');
+  const label = MONTHS_SHORT[parseInt(parts[1])-1] + ' ' + parseInt(parts[2]) + ', ' + parts[0];
+
+  document.getElementById('sheet-date').textContent = label;
+  const pnlEl = document.getElementById('sheet-pnl');
+  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2);
+  pnlEl.className = 'sheet-pnl ' + (totalPnl > 0 ? 'pos' : totalPnl < 0 ? 'neg' : 'zero');
+
+  const body = document.getElementById('sheet-body');
+  if (!trades.length) {
+    body.innerHTML = '<div class="no-trades">No trades on this day</div>';
+  } else {
+    body.innerHTML = [...trades]
+      .sort((a,b) => (a.time||'').localeCompare(b.time||''))
+      .map(t => {
+        const net = (t.profit||0) + (t.commission||0) + (t.swap||0);
+        const timeLabel = t.time ? t.time.split(' ')[1]?.slice(0,5) || '' : '';
+        return `
+          <div class="trade-item">
+            <div class="trade-badge ${t.type}">${(t.type||'').toUpperCase()}</div>
+            <div class="trade-info">
+              <div class="trade-sym">${t.symbol || '—'}</div>
+              <div class="trade-time">${timeLabel} · vol ${(t.volume||0).toFixed(2)}</div>
+            </div>
+            <div>
+              <div class="trade-pnl ${net>=0?'pos':'neg'}">${net>=0?'+':''}$${net.toFixed(2)}</div>
+              <div class="trade-comm">comm $${(t.commission||0).toFixed(2)}</div>
+            </div>
+          </div>`;
+      }).join('');
+  }
+
+  const bg = document.getElementById('sheet-bg');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('open'));
+}
+
+function closeSheet(e) {
+  if (e && e.target !== document.getElementById('sheet-bg')) return;
+  const bg = document.getElementById('sheet-bg');
+  bg.classList.remove('open');
+  setTimeout(() => bg.style.display = 'none', 300);
+}
+
+function changeMonth(dir) {
+  curMonth += dir;
+  if (curMonth > 11) { curMonth = 0; curYear++; }
+  if (curMonth < 0)  { curMonth = 11; curYear--; }
+  render();
+}
+
+// ════════════════════════════════════════
+// SWIPE TO CHANGE MONTH
+// ════════════════════════════════════════
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 60 && !document.getElementById('sheet-bg').classList.contains('open')) {
+    changeMonth(dx < 0 ? 1 : -1);
+  }
+}, { passive: true });
+
+// ════════════════════════════════════════
+// START
+// ════════════════════════════════════════
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
