@@ -3,22 +3,16 @@
   "short_name": "PnL",
   "description": "Live MT5 trading P&L calendar",
   "start_url": "/pnl-journal/index.html",
+  "scope": "/pnl-journal/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0f",
   "theme_color": "#0a0a0f",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "https://raw.githubusercontent.com/edgarangeles-pnl/pnl-journal/main/icon.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
